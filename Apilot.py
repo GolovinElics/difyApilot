@@ -10,7 +10,7 @@ from common.log import logger
 from plugins import *
 from datetime import datetime, timedelta
 BASE_URL_VVHAN = "https://api.vvhan.com/api/"
-BASE_URL_ALAPI = "https://v2.alapi.cn/api/"
+BASE_URL_ALAPI = "https://v3.alapi.cn/api/"
 
 
 @plugins.register(
@@ -155,16 +155,16 @@ class Apilot(Plugin):
 
         # 娱乐和信息类
         help_text += "\n🎉 娱乐与资讯：\n"
-        help_text += "  🌅 早报: 发送“早报”获取早报。\n"
-        help_text += "  🐟 摸鱼: 发送“摸鱼”获取摸鱼人日历。\n"
-        help_text += "  🔥 热榜: 发送“xx热榜”查看支持的热榜。\n"
-        help_text += "  🔥 八卦: 发送“八卦”获取明星八卦。\n"
+        help_text += '  🌅 早报: 发送"早报"获取早报。\n'
+        help_text += '  🐟 摸鱼: 发送"摸鱼"获取摸鱼人日历。\n'
+        help_text += '  🔥 热榜: 发送"xx热榜"查看支持的热榜。\n'
+        help_text += '  🔥 八卦: 发送"八卦"获取明星八卦。\n'
 
         # 查询类
         help_text += "\n🔍 查询工具：\n"
-        help_text += "  🌦️ 天气: 发送“城市+天气”查天气，如“北京天气”。\n"
-        help_text += "  📦 快递: 发送“快递+单号”查询快递状态。如“快递112345655”\n"
-        help_text += "  🌌 星座: 发送星座名称查看今日运势，如“白羊座”。\n"
+        help_text += '  🌦️ 天气: 发送"城市+天气"查天气，如"北京天气"。\n'
+        help_text += '  📦 快递: 发送"快递+单号"查询快递状态。如"快递112345655"\n'
+        help_text += '  🌌 星座: 发送星座名称查看今日运势，如"白羊座"。\n'
 
         return help_text
 
@@ -234,9 +234,9 @@ class Apilot(Plugin):
                 if self.is_valid_image_url(moyu_pic_url):
                     return moyu_pic_url
                 else:
-                    return "周末无需摸鱼，愉快玩耍吧"
+                    return '周末无需摸鱼，愉快玩耍吧'
             else:
-                return "暂无可用“摸鱼”服务，认真上班"
+                return '暂无可用摸鱼服务，认真上班'
 
     def get_moyu_calendar_video(self):
         url = "https://dayu.qqsuu.cn/moyuribaoshipin/apis.php?type=json"
@@ -395,11 +395,12 @@ class Apilot(Plugin):
         isFuture = date in ['明天', '后天', '七天', '7天']
         if isFuture:
             url = BASE_URL_ALAPI + 'tianqi/seven'
+        
         # 判断使用id还是city请求api
         if city_or_id.isnumeric():  # 判断是否为纯数字，也即是否为 city_id
             params = {
                 'city_id': city_or_id,
-                'token': f'{alapi_token}'
+                'token': alapi_token
             }
         else:
             city_info = self.check_multiple_city_ids(city_or_id)
@@ -409,96 +410,97 @@ class Apilot(Plugin):
                     [f"{idx + 1}) {entry['province']}--{entry['leader']}, ID: {entry['city_id']}"
                      for idx, entry in enumerate(data)]
                 )
-                return f"查询 <{city_or_id}> 具有多条数据：\n{formatted_city_info}\n请使用id查询，发送“id天气”"
+                return f'查询 <{city_or_id}> 具有多条数据：\n{formatted_city_info}\n请使用id查询，发送"id天气"'
 
             params = {
                 'city': city_or_id,
-                'token': f'{alapi_token}'
+                'token': alapi_token
             }
+        
         try:
             weather_data = self.make_request(url, "GET", params=params)
             if isinstance(weather_data, dict) and weather_data.get('code') == 200:
                 data = weather_data['data']
-                if isFuture:
+                
+                # 处理七天天气预报
+                if isFuture and isinstance(data, list):
                     formatted_output = []
                     for num, d in enumerate(data):
                         if num == 0:
-                            formatted_output.append(f"🏙️ 城市: {d['city']} ({d['province']})\n")
+                            formatted_output.append(f"城市: {d['city']} ({d['province']})\n")
                         if date == '明天' and num != 1:
                             continue
                         if date == '后天' and num != 2:
                             continue
                         basic_info = [
-                            f"🕒 日期: {d['date']}",
-                            f"🌦️ 天气: 🌞{d['wea_day']}| 🌛{d['wea_night']}",
-                            f"🌡️ 温度: 🌞{d['temp_day']}℃| 🌛{d['temp_night']}℃",
-                            f"🌅 日出/日落: {d['sunrise']} / {d['sunset']}",
+                            f"日期: {d['date']}",
+                            f"天气: {d['wea_day']} | {d['wea_night']}",
+                            f"温度: {d['temp_day']}℃ | {d['temp_night']}℃",
+                            f"日出/日落: {d['sunrise']} / {d['sunset']}"
                         ]
-                        for i in d['index']:
-                            basic_info.append(f"{i['name']}: {i['level']}")
+                        if 'index' in d:
+                            for i in d['index']:
+                                basic_info.append(f"{i['name']}: {i['level']}")
                         formatted_output.append("\n".join(basic_info) + '\n')
                     return "\n".join(formatted_output)
-                update_time = data['update_time']
-                dt_object = datetime.strptime(update_time, "%Y-%m-%d %H:%M:%S")
-                formatted_update_time = dt_object.strftime("%m-%d %H:%M")
-                # Basic Info
-                if not city_or_id.isnumeric() and data['city'] not in content:  # 如果返回城市信息不是所查询的城市，重新输入
-                    return "输入不规范，请输<国内城市+(今天|明天|后天|七天|7天)+天气>，比如 '广州天气'"
+                
+                # 处理当天天气
+                if not city_or_id.isnumeric() and data['city'] not in content:
+                    return '输入不规范，请输<国内城市+(今天|明天|后天|七天|7天)+天气>，比如 "广州天气"'
+                
                 formatted_output = []
+                
+                # 基本天气信息
+                update_time = datetime.strptime(data['update_time'], "%Y-%m-%d %H:%M:%S").strftime("%m-%d %H:%M")
                 basic_info = (
-                    f"🏙️ 城市: {data['city']} ({data['province']})\n"
-                    f"🕒 更新: {formatted_update_time}\n"
-                    f"🌦️ 天气: {data['weather']}\n"
-                    f"🌡️ 温度: ↓{data['min_temp']}℃| 现{data['temp']}℃| ↑{data['max_temp']}℃\n"
-                    f"🌬️ 风向: {data['wind']}\n"
-                    f"💦 湿度: {data['humidity']}\n"
-                    f"🌅 日出/日落: {data['sunrise']} / {data['sunset']}\n"
+                    f"城市: {data['city']} ({data['province']})\n"
+                    f"更新: {update_time}\n"
+                    f"天气: {data['weather']}\n"
+                    f"温度: ↓{data['min_temp']}℃ | 现{data['temp']}℃ | ↑{data['max_temp']}℃\n"
+                    f"风向: {data['wind']}\n"
+                    f"湿度: {data['humidity']}\n"
+                    f"日出/日落: {data['sunrise']} / {data['sunset']}\n"
                 )
                 formatted_output.append(basic_info)
-
-
-                # Clothing Index,处理部分县区穿衣指数返回null
-                chuangyi_data = data.get('index', {}).get('chuangyi', {})
-                if chuangyi_data:
-                    chuangyi_level = chuangyi_data.get('level', '未知')
-                    chuangyi_content = chuangyi_data.get('content', '未知')
-                else:
-                    chuangyi_level = '未知'
-                    chuangyi_content = '未知'
-
-                chuangyi_info = f"👚 穿衣指数: {chuangyi_level} - {chuangyi_content}\n"
-                formatted_output.append(chuangyi_info)
-                # Next 7 hours weather
-                ten_hours_later = dt_object + timedelta(hours=10)
-
-                future_weather = []
-                for hour_data in data['hour']:
-                    forecast_time_str = hour_data['time']
-                    forecast_time = datetime.strptime(forecast_time_str, "%Y-%m-%d %H:%M:%S")
-
-                    if dt_object < forecast_time <= ten_hours_later:
-                        future_weather.append(f"     {forecast_time.hour:02d}:00 - {hour_data['wea']} - {hour_data['temp']}°C")
-
-                future_weather_info = "⏳ 未来10小时的天气预报:\n" + "\n".join(future_weather)
-                formatted_output.append(future_weather_info)
-
-                # Alarm Info
-                if data.get('alarm'):
-                    alarm_info = "⚠️ 预警信息:\n"
+                
+                # 穿衣指数
+                if 'index' in data and 'chuangyi' in data['index']:
+                    chuangyi = data['index']['chuangyi']
+                    formatted_output.append(f"穿衣指数: {chuangyi['level']} - {chuangyi['content']}\n")
+                
+                # 未来天气预报
+                if 'hour' in data:
+                    dt_object = datetime.strptime(data['update_time'], "%Y-%m-%d %H:%M:%S")
+                    ten_hours_later = dt_object + timedelta(hours=10)
+                    future_weather = []
+                    
+                    for hour_info in data['hour']:
+                        forecast_time = datetime.strptime(hour_info['time'], "%Y-%m-%d %H:%M:%S")
+                        if dt_object < forecast_time <= ten_hours_later:
+                            future_weather.append(
+                                f"     {forecast_time.hour:02d}:00 - {hour_info['wea']} - {hour_info['temp']}°C"
+                            )
+                    
+                    if future_weather:
+                        formatted_output.append("未来10小时的天气预报:\n" + "\n".join(future_weather))
+                
+                # 预警信息
+                if 'alarm' in data and data['alarm']:
+                    alarm_info = "预警信息:\n"
                     for alarm in data['alarm']:
                         alarm_info += (
-                            f"🔴 标题: {alarm['title']}\n"
-                            f"🟠 等级: {alarm['level']}\n"
-                            f"🟡 类型: {alarm['type']}\n"
-                            f"🟢 提示: \n{alarm['tips']}\n"
-                            f"🔵 内容: \n{alarm['content']}\n\n"
+                            f"标题: {alarm['title']}\n"
+                            f"等级: {alarm['level']}\n"
+                            f"类型: {alarm['type']}\n"
+                            f"提示: \n{alarm['tips']}\n"
+                            f"内容: \n{alarm['content']}\n\n"
                         )
                     formatted_output.append(alarm_info)
-
+                
                 return "\n".join(formatted_output)
             else:
                 return self.handle_error(weather_data, "获取失败，请查看服务器log")
-
+            
         except Exception as e:
             return self.handle_error(e, "获取天气信息失败")
 
@@ -520,16 +522,37 @@ class Apilot(Plugin):
 
     def make_request(self, url, method="GET", headers=None, params=None, data=None, json_data=None):
         try:
+            # 设置默认超时时间
+            timeout = 10
+            # 设置默认请求头
+            if headers is None:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            
             if method.upper() == "GET":
-                response = requests.request(method, url, headers=headers, params=params)
+                response = requests.get(url, headers=headers, params=params, timeout=timeout)
             elif method.upper() == "POST":
-                response = requests.request(method, url, headers=headers, data=data, json=json_data)
+                response = requests.post(url, headers=headers, data=data, json=json_data, timeout=timeout)
             else:
                 return {"success": False, "message": "Unsupported HTTP method"}
 
-            return response.json()
+            # 检查响应状态码
+            response.raise_for_status()
+            
+            # 尝试解析JSON响应
+            try:
+                return response.json()
+            except ValueError:
+                # 如果响应不是JSON格式，返回原始文本
+                return {"success": False, "message": f"Invalid JSON response: {response.text[:100]}..."}
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {str(e)}")
+            return {"success": False, "message": f"Request failed: {str(e)}"}
         except Exception as e:
-            return e
+            logger.error(f"Unexpected error: {str(e)}")
+            return {"success": False, "message": f"Unexpected error: {str(e)}"}
 
 
     def create_reply(self, reply_type, content):
